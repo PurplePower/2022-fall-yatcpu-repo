@@ -17,6 +17,7 @@ package riscv.core
 import chisel3._
 import chisel3.util._
 import riscv.Parameters
+import scala.collection.immutable.ArraySeq
 
 object InstructionTypes {
   val L = "b0000011".U
@@ -167,6 +168,7 @@ class InstructionDecode extends Module {
       InstructionTypes.B -> Cat(Fill(20, io.instruction(31)), io.instruction(7), io.instruction(30, 25), io.instruction(11, 8), 0.U(1.W)),
       Instructions.lui -> Cat(io.instruction(31, 12), 0.U(12.W)),
       Instructions.auipc -> Cat(io.instruction(31, 12), 0.U(12.W)),
+      // NOTE: jal's imm represents multiple of 2 bytes
       Instructions.jal -> Cat(Fill(12, io.instruction(31)), io.instruction(19, 12), io.instruction(20), io.instruction(30, 21), 0.U(1.W))
     )
   )
@@ -179,8 +181,33 @@ class InstructionDecode extends Module {
 
   // lab1(InstructionDecode)
 
+  /*
+    ALU op2 from reg: R-type, 
+
+    ALU op2 from imm: L-Type(I-type subtype), I-type(nop=addi, jalr, csr-class, fence~), J-type(jal), U-type(lui, zuipc), 
+      S-type(rs2 value sent to MemControl, ALU computes rs1 + imm.)
+      B-type(rs2 compares with rs1 in jump judge unit, ALU computes jump address PC+imm.)
+  */
+  io.ex_aluop2_source := Mux (
+    opcode === InstructionTypes.RM,
+    ALUOp2Source.Register, ALUOp2Source.Immediate
+  )
 
 
+  // only I-type (load subtype) will read memory
+  io.memory_read_enable := (opcode === InstructionTypes.L)
+
+  // and only S-type will write memory
+  io.memory_write_enable := (opcode === InstructionTypes.S)
+
+  io.wb_reg_write_source := MuxCase(RegWriteSource.ALUResult,
+    ArraySeq(
+      (opcode === InstructionTypes.RM ||  opcode === InstructionTypes.I ||
+       opcode === Instructions.lui || opcode === Instructions.auipc) -> RegWriteSource.ALUResult, // same as default 
+      (opcode === InstructionTypes.L) -> RegWriteSource.Memory,
+      (opcode === Instructions.jal || opcode === Instructions.jalr) -> RegWriteSource.NextInstructionAddress
+    )
+  )
 
 
 
@@ -190,4 +217,9 @@ class InstructionDecode extends Module {
     (opcode === InstructionTypes.L) || (opcode === Instructions.auipc) || (opcode === Instructions.lui) ||
     (opcode === Instructions.jal) || (opcode === Instructions.jalr)
   io.reg_write_address := io.instruction(11, 7)
+
+  // printf(cf"reg WE=${io.reg_write_enable}, to ${io.reg_write_address}, imm=$immediate\n")
+
+  
+
 }

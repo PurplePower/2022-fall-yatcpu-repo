@@ -110,6 +110,7 @@ uint32_t parse_number(std::string const& str) {
   return std::stoul(str);
 }
 
+
 class Simulator {
   vluint64_t main_time = 0;
   vluint64_t max_sim_time = 10000;
@@ -133,12 +134,12 @@ class Simulator {
 
     if (auto it = std::find(args.begin(), args.end(), "-memory");
         it != args.end()) {
-      memory_words = std::stoul(*(it + 1));
+      memory_words = std::stoull(*(it + 1));
     }
 
     if (auto it = std::find(args.begin(), args.end(), "-time");
         it != args.end()) {
-      max_sim_time = std::stoul(*(it + 1));
+      max_sim_time = std::stoull(*(it + 1));
     }
 
     if (auto it = std::find(args.begin(), args.end(), "-vcd");
@@ -168,6 +169,10 @@ class Simulator {
     if (!instruction_filename.empty()) {
       memory->load_binary(instruction_filename);
     }
+
+    std::cout << "-time " << max_sim_time << std::endl
+      << "-memory " << memory_words << std::endl
+      << "-instruction " << instruction_filename << std::endl;
   }
 
   void run() {
@@ -177,9 +182,11 @@ class Simulator {
     vcd_tracer->dump(main_time);
     uint32_t data_memory_read_word = 0;
     uint32_t inst_memory_read_word = 0;
-	uint32_t counter = 0;
-	uint32_t clocktime = 1;
+    uint32_t counter = 0;
+    uint32_t clocktime = 1;
     bool memory_write_strobe[4] = {false};
+    std::cout << std::endl;
+    int last_percentage = -1;
     while (main_time < max_sim_time && !Verilated::gotFinish()) {
       ++main_time;
       ++counter;
@@ -190,6 +197,10 @@ class Simulator {
       if (main_time > 2) {
         top->reset = 0;
       }
+
+      // if (main_time % 100000 == 0)
+      //   std::cout << "time " << main_time << ": start top eval...\n";
+
 //      top->io_mem_slave_read_data = memory_read_word;
       top->io_instruction_valid = 1;
       top->io_memory_bundle_read_data = data_memory_read_word;
@@ -197,11 +208,12 @@ class Simulator {
       top->clock = !top->clock;
       top->eval();
 
+      // if (main_time % 100000 == 0)
+      //   std::cout << "time " << main_time << ": start read inst. ...\n";
+      data_memory_read_word = memory->read(top->io_memory_bundle_address);
 
-	  data_memory_read_word = memory->read(top->io_memory_bundle_address);
 
-
-	  inst_memory_read_word = memory->readInst(top->io_instruction_address);
+      inst_memory_read_word = memory->readInst(top->io_instruction_address);
 
       if (top->io_memory_bundle_write_enable) {
         memory_write_strobe[0] = top->io_memory_bundle_write_strobe_0;
@@ -214,9 +226,19 @@ class Simulator {
       vcd_tracer->dump(main_time);
       if (halt_address) {
         if (memory->read(halt_address) == 0xBABECAFE) {
+          std::cout << "halted\n";
           break;
         }
       }
+
+      // print progress
+      int percentage = (double)main_time * 100 / max_sim_time;
+      if (percentage > last_percentage) {
+        last_percentage = percentage;
+        std::cout << "\x1b[A[" << std::string(percentage / 5, '=') << ">" << std::string(20-percentage/5, ' ')
+          << "] " << percentage << "%" << std::endl;
+      }
+      
     }
 
     if (dump_signature) {

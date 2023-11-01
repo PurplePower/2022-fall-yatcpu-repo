@@ -114,12 +114,46 @@ class ByteAccessTest extends AnyFlatSpec with ChiselScalatestTester {
         c.clock.step()
         c.io.mem_debug_read_address.poke((i * 4).U) // Avoid timeout
       }
-      c.io.regs_debug_read_address.poke(5.U)
+      c.io.regs_debug_read_address.poke(5.U)  // t0
       c.io.regs_debug_read_data.expect(0xDEADBEEFL.U)
-      c.io.regs_debug_read_address.poke(6.U)
+
+      c.io.regs_debug_read_address.poke(6.U)  // t1
       c.io.regs_debug_read_data.expect(0xEF.U)
-      c.io.regs_debug_read_address.poke(1.U)
+
+      c.io.regs_debug_read_address.poke(1.U)  // ra
       c.io.regs_debug_read_data.expect(0x15EF.U)
     }
   }
 }
+
+
+class SayGoodbyeTest extends  AnyFlatSpec with ChiselScalatestTester {
+  behavior of "Single Cycle CPU"
+  it should "read say goodbye words" in {
+    test(new TestTopModule("say_goodbye.asmbin")).withAnnotations(TestAnnotations.annos) { c =>
+      for (i <- 1 to 1000) {
+        c.clock.step(1000)
+        c.io.mem_debug_read_address.poke((i * 4).U) // Avoid timeout
+      }
+
+      val msg = "Never gonna" // TODO: too long message may cause error
+
+      for (i <- 0 until msg.length()) {
+        c.io.mem_debug_read_address.poke((4 + i * 4).U) // in bytes, we write int in say_goodbye.c
+        c.clock.step(10)
+        c.io.mem_debug_read_data.expect(msg.charAt(i).U)
+      }
+
+      // c.clock.step()
+      // c.io.mem_debug_read_address.poke(4.U) 
+      // c.clock.step()
+      // c.io.mem_debug_read_data.expect('N'.U)
+
+    }
+  }
+}
+
+
+
+
+
