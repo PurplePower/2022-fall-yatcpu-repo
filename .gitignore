@@ -357,4 +357,6 @@ vivado/pynq/NA
 .vscode
 .metals
 
-*/.bloop/*
+*/.bloop/
+*.semanticdb
+
