@@ -129,7 +129,7 @@ object ALUOp2Source {
 object RegWriteSource {
   val ALUResult = 0.U(2.W)
   val Memory = 1.U(2.W)
-  //val CSR = 2.U(2.W)
+  val CSR = 2.U(2.W)
   val NextInstructionAddress = 3.U(2.W)
 }
 
@@ -215,8 +215,15 @@ class InstructionDecode extends Module {
   // lab1(InstructionDecode) end
   io.reg_write_enable := (opcode === InstructionTypes.RM) || (opcode === InstructionTypes.I) ||
     (opcode === InstructionTypes.L) || (opcode === Instructions.auipc) || (opcode === Instructions.lui) ||
-    (opcode === Instructions.jal) || (opcode === Instructions.jalr)
+    (opcode === Instructions.jal) || (opcode === Instructions.jalr) || (opcode === Instructions.csr)
   io.reg_write_address := io.instruction(11, 7)
+  io.csr_reg_address := io.instruction(31,20)
+  io.csr_reg_write_enable := (opcode === Instructions.csr) && (
+    funct3 === InstructionsTypeCSR.csrrw || funct3 === InstructionsTypeCSR.csrrwi ||
+      funct3 === InstructionsTypeCSR.csrrs || funct3 === InstructionsTypeCSR.csrrsi ||
+      funct3 === InstructionsTypeCSR.csrrc || funct3 === InstructionsTypeCSR.csrrci
+    )
+
 
   // printf(cf"reg WE=${io.reg_write_enable}, to ${io.reg_write_address}, imm=$immediate\n")
 

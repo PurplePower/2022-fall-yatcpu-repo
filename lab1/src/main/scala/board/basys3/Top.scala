@@ -18,7 +18,7 @@ import chisel3._
 import chisel3.experimental.ChiselEnum
 import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 import chisel3.util._
-import peripheral.{CharacterDisplay, Dummy, InstructionROM, Memory, ROMLoader, VGADisplay}
+import peripheral.{CharacterDisplay, Dummy, InstructionROM, Memory, ROMLoader, Uart, VGADisplay, Timer}
 import riscv._
 import riscv.core.{CPU, ProgramCounter}
 
@@ -39,16 +39,25 @@ class Top extends Module {
     val rgb = Output(UInt(12.W))
     val led = Output(UInt(16.W))
 
+    val tx = Output(Bool())
+    val rx = Input(Bool())
+
   })
-  val vga_display = Module(new VGADisplay)
-  val display = Module(new CharacterDisplay)
 
   val mem = Module(new Memory(Parameters.MemorySizeInWords))
+  val vga_display = Module(new VGADisplay)
+  val display = Module(new CharacterDisplay)
+  val timer = Module(new Timer)
+  val uart = Module(new Uart(frequency = 100000000, baudRate = 115200))
   val dummy = Module(new Dummy)
 
   display.io.bundle <> dummy.io.bundle
   mem.io.bundle <> dummy.io.bundle
   mem.io.debug_read_address := 0.U
+  timer.io.bundle <> dummy.io.bundle
+  uart.io.bundle <> dummy.io.bundle
+  io.tx := uart.io.txd
+  uart.io.rxd := io.rx
 
   val instruction_rom = Module(new InstructionROM(binaryFilename))
   val rom_loader = Module(new ROMLoader(instruction_rom.capacity))
@@ -66,7 +75,9 @@ class Top extends Module {
 
   withClock(CPU_tick.asClock) {
     val cpu = Module(new CPU)
-    cpu.io.debug_read_address := 0.U
+    cpu.io.interrupt_flag := Cat(uart.io.signal_interrupt, timer.io.signal_interrupt)
+    cpu.io.csr_regs_debug_read_address := 0.U
+    cpu.io.regs_debug_read_address := 0.U
     cpu.io.instruction_valid := rom_loader.io.load_finished
     mem.io.instruction_address := cpu.io.instruction_address
     cpu.io.instruction := mem.io.instruction
@@ -76,19 +87,25 @@ class Top extends Module {
       cpu.io.memory_bundle.read_data := 0.U
     }.otherwise {
       rom_loader.io.bundle.read_data := 0.U
-      when(cpu.io.deviceSelect === 1.U) {
+      when(cpu.io.deviceSelect === 4.U) {
+        cpu.io.memory_bundle <> timer.io.bundle
+      }.elsewhen(cpu.io.deviceSelect === 2.U) {
+        cpu.io.memory_bundle <> uart.io.bundle
+      }.elsewhen(cpu.io.deviceSelect === 1.U) {
         cpu.io.memory_bundle <> display.io.bundle
       }.otherwise {
         cpu.io.memory_bundle <> mem.io.bundle
       }
     }
   }
-  io.hsync := vga_display.io.hsync
-  io.vsync := vga_display.io.vsync
+  // io.hsync := vga_display.io.hsync
+  // io.vsync := vga_display.io.vsync
 
   display.io.x := vga_display.io.x
   display.io.y := vga_display.io.y
-  display.io.video_on := vga_display.io.video_on
+
+  io.hsync := vga_display.io.hsync
+  io.vsync := vga_display.io.vsync
 
   io.rgb := display.io.rgb
 

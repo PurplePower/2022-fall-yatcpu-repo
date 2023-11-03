@@ -26,32 +26,25 @@ class InstructionFetch extends Module {
     val jump_flag_id = Input(Bool())
     val jump_address_id = Input(UInt(Parameters.AddrWidth))
     val instruction_read_data = Input(UInt(Parameters.DataWidth))
+    val interrupt_assert = Input(Bool())
+    val interrupt_handler_address = Input(UInt(Parameters.AddrWidth))
     val instruction_valid = Input(Bool())
 
     val instruction_address = Output(UInt(Parameters.AddrWidth))
     val instruction = Output(UInt(Parameters.InstructionWidth))
+
   })
   val pc = RegInit(ProgramCounter.EntryAddress)
 
   when(io.instruction_valid) {
+    when(io.interrupt_assert){
+      pc := io.interrupt_handler_address
+    }.elsewhen(io.jump_flag_id){
+      pc := io.jump_address_id
+    }.otherwise {
+      pc := pc + 4.U
+    }
     io.instruction := io.instruction_read_data
-    // lab1(InstructionFetch)
-
-    // TODO use Mux?
-    // when(io.jump_flag_id) {
-    //   // jump to address
-    //   pc := io.jump_address_id
-    // }.otherwise {
-    //   pc := pc + 4.U
-    // }
-
-    pc := Mux(io.jump_flag_id, io.jump_address_id, pc + 4.U)
-
-
-
-    // la1(InstructionFetch) end
-
-
   }.otherwise{
     pc := pc
     io.instruction := 0x00000013.U

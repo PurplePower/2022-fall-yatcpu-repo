@@ -27,12 +27,20 @@ class CPU extends Module {
   val ex = Module(new Execute)
   val mem = Module(new MemoryAccess)
   val wb = Module(new WriteBack)
+  val csr_regs = Module(new CSR)
+  val clint = Module(new CLINT)
 
+  io.regs_debug_read_data := regs.io.debug_read_data
+  io.csr_regs_debug_read_data := csr_regs.io.debug_reg_read_data
+  regs.io.debug_read_address := io.regs_debug_read_address
+  csr_regs.io.debug_reg_read_address := io.csr_regs_debug_read_address
 
   io.deviceSelect := mem.io.memory_bundle.address(Parameters.AddrBits - 1, Parameters.AddrBits - Parameters.SlaveDeviceCountBits)
 
   inst_fetch.io.jump_address_id := ex.io.if_jump_address
   inst_fetch.io.jump_flag_id := ex.io.if_jump_flag
+  inst_fetch.io.interrupt_assert := clint.io.interrupt_assert
+  inst_fetch.io.interrupt_handler_address := clint.io.interrupt_handler_address
   inst_fetch.io.instruction_valid := io.instruction_valid
   inst_fetch.io.instruction_read_data := io.instruction
   io.instruction_address := inst_fetch.io.instruction_address
@@ -43,21 +51,27 @@ class CPU extends Module {
   regs.io.read_address1 := id.io.regs_reg1_read_address
   regs.io.read_address2 := id.io.regs_reg2_read_address
 
-  regs.io.debug_read_address := io.debug_read_address
-  io.debug_read_data := regs.io.debug_read_data
+  // regs.io.debug_read_address := io.debug_read_address
+  // io.debug_read_data := regs.io.debug_read_data
 
   id.io.instruction := inst_fetch.io.instruction
 
   // lab1(cpu)
+  csr_regs.io.clint_access_bundle <> clint.io.csr_bundle
+  csr_regs.io.reg_read_address_id := id.io.csr_reg_address
+  csr_regs.io.reg_write_data_ex := ex.io.csr_reg_write_data
+  csr_regs.io.reg_write_address_id := id.io.csr_reg_address
+  csr_regs.io.reg_write_enable_id := id.io.csr_reg_write_enable
 
-  ex.io.instruction := io.instruction
+  // ex.io.instruction := io.instruction
+  ex.io.instruction := inst_fetch.io.instruction
   ex.io.instruction_address := inst_fetch.io.instruction_address
   ex.io.reg1_data := regs.io.read_data1
   ex.io.reg2_data := regs.io.read_data2
   ex.io.immediate := id.io.ex_immediate
   ex.io.aluop1_source := id.io.ex_aluop1_source
   ex.io.aluop2_source := id.io.ex_aluop2_source
-
+  ex.io.csr_reg_read_data := csr_regs.io.reg_read_data
 
   // lab1(cpu) end
 
@@ -78,4 +92,12 @@ class CPU extends Module {
   wb.io.alu_result := ex.io.mem_alu_result
   wb.io.memory_read_data := mem.io.wb_memory_read_data
   wb.io.regs_write_source := id.io.wb_reg_write_source
+  wb.io.csr_read_data := csr_regs.io.reg_read_data
+
+  clint.io.instruction := inst_fetch.io.instruction
+  clint.io.instruction_address := inst_fetch.io.instruction_address
+  clint.io.interrupt_flag := io.interrupt_flag
+  clint.io.jump_flag := ex.io.if_jump_flag
+  clint.io.jump_address := ex.io.if_jump_address
+
 }

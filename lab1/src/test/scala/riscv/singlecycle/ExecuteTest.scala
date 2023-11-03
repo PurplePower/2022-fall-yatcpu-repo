@@ -21,6 +21,7 @@ import riscv.TestAnnotations
 import riscv.core.{ALUOp1Source, ALUOp2Source, Execute, InstructionTypes}
 
 class ExecuteTest extends AnyFlatSpec with ChiselScalatestTester{
+  // old test from lab 1
   behavior of "Exxecute of Single Cycle CPU"
   it should "execute correctly" in {
     test(new Execute).withAnnotations(TestAnnotations.annos) { c =>
@@ -66,6 +67,34 @@ class ExecuteTest extends AnyFlatSpec with ChiselScalatestTester{
       c.clock.step()
       c.io.if_jump_flag.expect(0.U)
       c.io.if_jump_address.expect(4.U)
+    }
+  }
+}
+
+class ExecuteCSRTest extends AnyFlatSpec with ChiselScalatestTester{
+  behavior of "CLINTCSRTest of Single Cycle CPU"
+  it should "produce correct data for csr write" in {
+    test(new Execute).withAnnotations(TestAnnotations.annos) { c =>
+      c.io.instruction.poke(0x30047073L.U) // csrc mstatus,3
+      c.io.csr_reg_read_data.poke(0x1888L.U)
+      c.io.reg1_data.poke(0x1880L.U)
+      c.io.csr_reg_write_data.expect(0x1880.U)
+      c.clock.step()
+      c.io.instruction.poke(0x30046073L.U) //csrs mastatus,3
+      c.io.csr_reg_read_data.poke(0x1880L.U)
+      c.io.reg1_data.poke(0x1880L.U)
+      c.io.csr_reg_write_data.expect(0x1888.U)
+      c.clock.step()
+      c.io.instruction.poke(0x30051073L.U) //csrw mstatus, a0
+      c.io.csr_reg_read_data.poke(0.U)
+      c.io.reg1_data.poke(0x1888L.U)
+      c.io.csr_reg_write_data.expect(0x1888.U)
+      c.clock.step()
+      c.io.instruction.poke(0x30002573L.U) //csrr a0, mstatus
+      c.io.csr_reg_read_data.poke(0x1888.U)
+      c.io.reg1_data.poke(0x0L.U)
+      c.io.csr_reg_write_data.expect(0x1888.U)
+      c.clock.step()
     }
   }
 }

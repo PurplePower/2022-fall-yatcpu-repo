@@ -27,8 +27,10 @@ class Execute extends Module {
     val immediate = Input(UInt(Parameters.DataWidth))
     val aluop1_source = Input(UInt(1.W))
     val aluop2_source = Input(UInt(1.W))
+    val csr_reg_read_data = Input(UInt(Parameters.DataWidth))
 
     val mem_alu_result = Output(UInt(Parameters.DataWidth))
+    val csr_reg_write_data = Output(UInt(Parameters.DataWidth))
     val if_jump_flag = Output(Bool())
     val if_jump_address = Output(UInt(Parameters.DataWidth))
   })
@@ -36,8 +38,8 @@ class Execute extends Module {
   val opcode = io.instruction(6, 0)
   val funct3 = io.instruction(14, 12)
   val funct7 = io.instruction(31, 25)
-  val rd = io.instruction(11, 7)
-  val uimm = io.instruction(19, 15)
+  // val rd = io.instruction(11, 7)
+  // val uimm = io.instruction(19, 15)
 
   val alu = Module(new ALU)
   val alu_ctrl = Module(new ALUControl)
@@ -68,7 +70,6 @@ class Execute extends Module {
 
   // lab1(Execute) end
 
-  io.mem_alu_result := alu.io.result
   io.if_jump_flag := opcode === Instructions.jal ||
     (opcode === Instructions.jalr) ||
     (opcode === InstructionTypes.B) && MuxLookup(
@@ -84,4 +85,9 @@ class Execute extends Module {
       )
     )
   io.if_jump_address := io.immediate + Mux(opcode === Instructions.jalr, io.reg1_data, io.instruction_address)
+  io.mem_alu_result := alu.io.result
+  // lab2(CLINTCSR)
+  /*
+  io.csr_reg_write_data :=
+  */
 }

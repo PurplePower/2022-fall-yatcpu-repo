@@ -14,12 +14,12 @@
 
 package riscv.singlecycle
 
-
+import board.basys3.BootStates
 import chisel3._
 import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
 import peripheral.{InstructionROM, Memory, ROMLoader}
-import riscv.core.{CPU, ProgramCounter}
+import riscv.core.{CPU, CSRRegister, ProgramCounter}
 import riscv.{Parameters, TestAnnotations}
 
 import java.nio.{ByteBuffer, ByteOrder}
@@ -29,8 +29,14 @@ class TestTopModule(exeFilename: String) extends Module {
   val io = IO(new Bundle {
     val mem_debug_read_address = Input(UInt(Parameters.AddrWidth))
     val regs_debug_read_address = Input(UInt(Parameters.PhysicalRegisterAddrWidth))
+    val csr_regs_debug_read_address = Input(UInt(Parameters.CSRRegisterAddrWidth))
+    val interrupt_flag = Input(UInt(Parameters.InterruptFlagWidth))
+
+
     val regs_debug_read_data = Output(UInt(Parameters.DataWidth))
     val mem_debug_read_data = Output(UInt(Parameters.DataWidth))
+    val csr_regs_debug_read_data = Output(UInt(Parameters.DataWidth))
+    val pc_debug_read = Output(UInt(Parameters.AddrWidth));
   })
 
   val mem = Module(new Memory(8192))
@@ -50,11 +56,10 @@ class TestTopModule(exeFilename: String) extends Module {
 
   withClock(CPU_tick.asClock) {
     val cpu = Module(new CPU)
-    cpu.io.debug_read_address := 0.U
     cpu.io.instruction_valid := rom_loader.io.load_finished
     mem.io.instruction_address := cpu.io.instruction_address
     cpu.io.instruction := mem.io.instruction
-
+    cpu.io.interrupt_flag := io.interrupt_flag
 
     when(!rom_loader.io.load_finished) {
       rom_loader.io.bundle <> mem.io.bundle
@@ -64,8 +69,11 @@ class TestTopModule(exeFilename: String) extends Module {
       cpu.io.memory_bundle <> mem.io.bundle
     }
 
-    cpu.io.debug_read_address := io.regs_debug_read_address
-    io.regs_debug_read_data := cpu.io.debug_read_data
+    cpu.io.regs_debug_read_address := io.regs_debug_read_address
+    cpu.io.csr_regs_debug_read_address := io.csr_regs_debug_read_address
+    io.regs_debug_read_data := cpu.io.regs_debug_read_data
+    io.csr_regs_debug_read_data := cpu.io.csr_regs_debug_read_data
+    io.pc_debug_read := cpu.io.instruction_address
   }
 
   mem.io.debug_read_address := io.mem_debug_read_address
@@ -74,7 +82,7 @@ class TestTopModule(exeFilename: String) extends Module {
 
 
 class FibonacciTest extends AnyFlatSpec with ChiselScalatestTester {
-  behavior of "Single Cycle CPU"
+  behavior of "Single Cycle CPU with CSR and CLINT"
   it should "calculate recursively fibonacci(10)" in {
     test(new TestTopModule("fibonacci.asmbin")).withAnnotations(TestAnnotations.annos) { c =>
       for (i <- 1 to 50) {
@@ -90,7 +98,7 @@ class FibonacciTest extends AnyFlatSpec with ChiselScalatestTester {
 }
 
 class QuicksortTest extends AnyFlatSpec with ChiselScalatestTester {
-  behavior of "Single Cycle CPU"
+  behavior of "Single Cycle CPU with CSR and CLINT"
   it should "quicksort 10 numbers" in {
     test(new TestTopModule("quicksort.asmbin")).withAnnotations(TestAnnotations.annos) { c =>
       for (i <- 1 to 50) {
@@ -107,7 +115,7 @@ class QuicksortTest extends AnyFlatSpec with ChiselScalatestTester {
 }
 
 class ByteAccessTest extends AnyFlatSpec with ChiselScalatestTester {
-  behavior of "Single Cycle CPU"
+  behavior of "Single Cycle CPU with CSR and CLINT"
   it should "store and load single byte" in {
     test(new TestTopModule("sb.asmbin")).withAnnotations(TestAnnotations.annos) { c =>
       for (i <- 1 to 500) {
@@ -153,7 +161,28 @@ class SayGoodbyeTest extends  AnyFlatSpec with ChiselScalatestTester {
   }
 }
 
-
-
-
-
+class SimpleTrapTest extends AnyFlatSpec with ChiselScalatestTester {
+  behavior of "Single Cycle CPU with CSR and CLINT"
+  it should "jump to trap handler and then return" in {
+    test(new TestTopModule("simpletest.asmbin")).withAnnotations(TestAnnotations.annos) { c =>
+      for (i <- 1 to 100) {
+        c.clock.step()
+        c.io.mem_debug_read_address.poke((i * 4).U) // Avoid timeout
+      }
+      c.io.mem_debug_read_address.poke(4.U)
+      c.clock.step()
+      c.io.mem_debug_read_data.expect(0xDEADBEEFL.U)
+      c.io.interrupt_flag.poke(0x1.U)
+      c.clock.step(5)
+      c.io.interrupt_flag.poke(0.U)
+      c.clock.step(10000)
+      c.io.csr_regs_debug_read_address.poke(CSRRegister.MSTATUS)
+      c.io.csr_regs_debug_read_data.expect(0x1888.U)
+      c.io.csr_regs_debug_read_address.poke(CSRRegister.MCAUSE)
+      c.io.csr_regs_debug_read_data.expect(0x80000007L.U)
+      c.io.mem_debug_read_address.poke(0x4.U)
+      c.clock.step()
+      c.io.mem_debug_read_data.expect(0x2022L.U)
+    }
+  }
+}

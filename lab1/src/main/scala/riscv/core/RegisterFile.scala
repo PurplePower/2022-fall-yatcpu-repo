@@ -15,6 +15,7 @@
 package riscv.core
 
 import chisel3._
+import chisel3.util._
 import riscv.Parameters
 
 object Registers extends Enumeration {
@@ -67,4 +68,6 @@ class RegisterFile extends Module {
     0.U,
     registers(io.debug_read_address)
   )
+
+
 }
