@@ -147,6 +147,8 @@ class InstructionDecode extends Module {
     val wb_reg_write_source = Output(UInt(2.W))
     val reg_write_enable = Output(Bool())
     val reg_write_address = Output(UInt(Parameters.PhysicalRegisterAddrWidth))
+    val csr_reg_write_enable = Output(Bool())
+    val csr_reg_address = Output(UInt(Parameters.DataWidth))
   })
   val opcode = io.instruction(6, 0)
   val funct3 = io.instruction(14, 12)
@@ -179,7 +181,7 @@ class InstructionDecode extends Module {
     ALUOp1Source.Register
   )
 
-  // lab1(InstructionDecode)
+  // lab1 + lab2
 
   /*
     ALU op2 from reg: R-type, 
@@ -205,10 +207,10 @@ class InstructionDecode extends Module {
       (opcode === InstructionTypes.RM ||  opcode === InstructionTypes.I ||
        opcode === Instructions.lui || opcode === Instructions.auipc) -> RegWriteSource.ALUResult, // same as default 
       (opcode === InstructionTypes.L) -> RegWriteSource.Memory,
-      (opcode === Instructions.jal || opcode === Instructions.jalr) -> RegWriteSource.NextInstructionAddress
+      (opcode === Instructions.jal || opcode === Instructions.jalr) -> RegWriteSource.NextInstructionAddress,
+      (opcode === Instructions.csr) -> RegWriteSource.CSR // NOTE: added CSR
     )
   )
-
 
 
 
@@ -225,7 +227,11 @@ class InstructionDecode extends Module {
     )
 
 
-  // printf(cf"reg WE=${io.reg_write_enable}, to ${io.reg_write_address}, imm=$immediate\n")
+  when (io.reg_write_enable) {
+    printf(cf"reg WE=${io.reg_write_enable}, to ${io.reg_write_address}, imm=0x$immediate%x\n")
+  }
+
+  
 
   
 

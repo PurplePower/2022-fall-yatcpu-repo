@@ -16,27 +16,27 @@
 _start:
   csrr a0, cycle
 
-  addi t0, zero, 1
-  sub t1, zero, t0
-  and t2, t0, t1
-  sw t2, 4(zero)
+  addi t0, zero, 1  # t0 = 1
+  sub t1, zero, t0  # t1 = 0xffffffff
+  and t2, t0, t1    # t2 = 1
+  sw t2, 4(zero)    # stored 1
   j skip1
   or t2, t0, t1
   xor t2, t0, t1
 
 skip1:
-  addi t1, t2, 1
-  add t2, t1, t2
-  and t2, t1, t2
-  lw t2, 2(t2)
-  or t3, t1, t2
-  blt t2, t3, skip2
-  or t3, t0, t0
-  xor t3, t0, t1
+  addi t1, t2, 1    # t1 = 2
+  add t2, t1, t2    # t2 = 3
+  and t2, t1, t2    # t2 = t2 = 5
+  lw t2, 2(t2)      # t2 = M[7] = 64/0
+  or t3, t1, t2     # t3 = 0
+  blt t2, t3, skip2 # false
+  or t3, t0, t0     # t3 = 1
+  xor t3, t0, t1    # t3 = 3
 
 skip2:
-  addi t4, zero, 3
-  bne t3, t4, skip1
+  addi t4, zero, 3  # t4=4
+  bne t3, t4, skip1 # false
   sw t3, 8(zero)
   auipc t4, 0
   jalr t4, 8(t4)

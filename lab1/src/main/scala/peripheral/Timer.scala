@@ -27,12 +27,45 @@ class Timer extends Module {
     val debug_enabled = Output(Bool())
   })
 
+
+  // val limit_bound_addr = 0x8000_0004L.U
+  // val enabled_bound_addr = 0x8000_0008L.U
+  val limit_bound_addr = "x8000_0004".U
+  val enabled_bound_addr = "x8000_0008".U
+
   val count = RegInit(0.U(32.W))
-  val limit = RegInit(100000000.U(32.W))
+  val limit = RegInit(100000000.U(32.W))  // bound to 0x8000 0004
   io.debug_limit := limit
-  val enabled = RegInit(true.B)
+  val enabled = RegInit(true.B) // bound to 0x8000 0008
   io.debug_enabled := enabled
 
   //lab2(CLINTCSR)
   //finish the read-write for count,limit,enabled. And produce appropriate signal_interrupt
+
+
+
+  when(io.bundle.write_enable) { 
+    when(io.bundle.address === limit_bound_addr) {
+      limit := io.bundle.write_data
+      printf(cf"[Timer] writing limit with 0x${io.bundle.write_data}%x\n")
+    }
+    .elsewhen(io.bundle.address === enabled_bound_addr) {
+      enabled := io.bundle.write_data
+      printf(cf"[Timer] writing enable with 0x${io.bundle.write_data}%x\n")
+    }
+  }
+
+
+  io.bundle.read_data := MuxCase(0.U, Array(
+    (io.bundle.address === limit_bound_addr) -> limit,
+    (io.bundle.address === enabled_bound_addr) -> enabled
+  ).toIndexedSeq)
+
+  io.signal_interrupt := count >= limit && enabled
+
+  when (enabled) {
+    count := (count + 1.U) % limit
+  }
+  
+
 }

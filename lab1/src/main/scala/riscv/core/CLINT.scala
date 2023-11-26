@@ -17,7 +17,11 @@ package riscv.core
 import chisel3._
 import chisel3.util.MuxLookup
 import riscv.Parameters
+import chisel3.util.Cat
 
+/*
+  Used to index external interrupt, at most 2^8 devices can be connected and handled.
+*/
 object InterruptStatus {
   val None = 0x0.U(8.W)
   val Timer0 = 0x1.U(8.W)
@@ -58,7 +62,7 @@ class CSRDirectAccessBundle extends Bundle {
 class CLINT extends Module {
   val io = IO(new Bundle {
     // Interrupt signals from peripherals
-    val interrupt_flag = Input(UInt(Parameters.InterruptFlagWidth))
+    val interrupt_flag = Input(UInt(Parameters.InterruptFlagWidth)) // among InterruptStatus
 
     val instruction = Input(UInt(Parameters.InstructionWidth))
     val instruction_address = Input(UInt(Parameters.AddrWidth))
@@ -78,30 +82,41 @@ class CLINT extends Module {
     io.instruction_address + 4.U,
   )
   //lab2(CLINTCSR)
-  /*
-  val interrupt_enable =
+
+  val mie_enabled_mstatus = Cat(io.csr_bundle.mstatus(31, 4), 1.U(1.W), io.csr_bundle.mstatus(2, 0))
+  val mie_disabled_mstatus = Cat(io.csr_bundle.mstatus(31, 4), 0.U(1.W), io.csr_bundle.mstatus(2, 0))
 
   when(io.interrupt_flag =/= InterruptStatus.None && interrupt_enable) {
-    io.csr_bundle.mstatus_write_data :=
-    io.csr_bundle.mepc_write_data :=
-    io.csr_bundle.mcause_write_data :=
-    io.csr_bundle.direct_write_enable :=
-    io.interrupt_assert :=
-    io.interrupt_handler_address :=
+    // when any interruption occurs and int. enabled
+
+    io.csr_bundle.mstatus_write_data := mie_disabled_mstatus  // do not respond to int. during int.
+    io.csr_bundle.mepc_write_data := instruction_address
+
+    io.csr_bundle.mcause_write_data := 1.U(1.W) ## MuxLookup(io.interrupt_flag, 11.U(31.W), // default to external
+      IndexedSeq(
+        InterruptStatus.Timer0 -> 7.U(31.W),  // machine timer int.
+        InterruptStatus.Ret -> 3.U(31.W), // machine software int.
+    ))
+    io.csr_bundle.direct_write_enable := true.B
+    io.interrupt_assert := true.B
+    io.interrupt_handler_address := io.csr_bundle.mtvec // jump to interrupt handler
   }.elsewhen(io.instruction === InstructionsRet.mret) {
-    io.csr_bundle.mstatus_write_data :=
-    io.csr_bundle.mepc_write_data :=
-    io.csr_bundle.mcause_write_data :=
-    io.csr_bundle.direct_write_enable :=
-    io.interrupt_assert :=
-    io.interrupt_handler_address :=
+
+    io.csr_bundle.mstatus_write_data := mie_enabled_mstatus // enable int.
+    io.csr_bundle.mepc_write_data := io.csr_bundle.mepc // unchanged
+    io.csr_bundle.mcause_write_data := io.csr_bundle.mcause // unchanged
+    io.csr_bundle.direct_write_enable := true.B
+    io.interrupt_assert := true.B // return from trap
+    io.interrupt_handler_address := io.csr_bundle.mtvec
   }.otherwise {
-    io.csr_bundle.mstatus_write_data :=
-    io.csr_bundle.mepc_write_data :=
-    io.csr_bundle.mcause_write_data :=
-    io.csr_bundle.direct_write_enable :=
-    io.interrupt_assert :=
-    io.interrupt_handler_address :=
+    // int. disabled (during int.) or none int. 
+
+    io.csr_bundle.mstatus_write_data := io.csr_bundle.mstatus
+    io.csr_bundle.mepc_write_data := io.csr_bundle.mepc
+    io.csr_bundle.mcause_write_data := io.csr_bundle.mcause
+    io.csr_bundle.direct_write_enable := false.B
+    io.interrupt_assert := false.B
+    io.interrupt_handler_address := instruction_address
   }
-   */
+
 }

@@ -72,17 +72,23 @@ class CSR extends Module {
 
   //lab2(CLINTCSR)
   //what data should be passed from csr to clint (Note: what should clint see is the next state of the CPU)
-  /*
-  io.clint_access_bundle.mstatus :=
-  io.clint_access_bundle.mtvec :=
-  io.clint_access_bundle.mcause :=
-  io.clint_access_bundle.mepc :=
-  */
+
+  // TODO: legal value check and correction
+  io.clint_access_bundle.mstatus := mstatus
+  io.clint_access_bundle.mtvec := mtvec
+  io.clint_access_bundle.mcause := mcause
+  io.clint_access_bundle.mepc := mepc
+
 
   when(io.clint_access_bundle.direct_write_enable) {
     mstatus := io.clint_access_bundle.mstatus_write_data
     mepc := io.clint_access_bundle.mepc_write_data
     mcause := io.clint_access_bundle.mcause_write_data
+
+    // printf(
+    //   cf"[CSR] direct writing with mstatus=0x${io.clint_access_bundle.mstatus_write_data}%x, "+
+    //   cf"mepc=0x${io.clint_access_bundle.mepc_write_data}%x, mcause=0x${io.clint_access_bundle.mcause_write_data}%x\n"
+    // )
   }.elsewhen(io.reg_write_enable_id) {
     when(io.reg_write_address_id === CSRRegister.MSTATUS) {
       mstatus := io.reg_write_data_ex
@@ -90,18 +96,17 @@ class CSR extends Module {
       mepc := io.reg_write_data_ex
     }.elsewhen(io.reg_write_address_id === CSRRegister.MCAUSE) {
       mcause := io.reg_write_data_ex
-    }
-  }
-
-  when(io.reg_write_enable_id) {
-    when(io.reg_write_address_id === CSRRegister.MIE) {
+    }.elsewhen(io.reg_write_address_id === CSRRegister.MIE) {
       mie := io.reg_write_data_ex
     }.elsewhen(io.reg_write_address_id === CSRRegister.MTVEC){
       mtvec := io.reg_write_data_ex
     }.elsewhen(io.reg_write_address_id === CSRRegister.MSCRATCH) {
       mscratch := io.reg_write_data_ex
     }
+
+    // printf(cf"[CSR] writing to addr 0x${io.reg_write_address_id}%x with value 0x${io.reg_write_data_ex}%x\n")
   }
+
 
 
 }

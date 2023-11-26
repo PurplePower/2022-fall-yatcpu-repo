@@ -15,7 +15,7 @@
 package riscv.core
 
 import chisel3._
-import chisel3.util.{Cat, MuxLookup}
+import chisel3.util.{Cat, MuxLookup, Fill}
 import riscv.Parameters
 
 class Execute extends Module {
@@ -39,7 +39,7 @@ class Execute extends Module {
   val funct3 = io.instruction(14, 12)
   val funct7 = io.instruction(31, 25)
   // val rd = io.instruction(11, 7)
-  // val uimm = io.instruction(19, 15)
+  val uimm = Cat(Fill(Parameters.DataBits - 5, 0.U), io.instruction(19, 15)) // zero extend to XLEN bits
 
   val alu = Module(new ALU)
   val alu_ctrl = Module(new ALUControl)
@@ -87,7 +87,20 @@ class Execute extends Module {
   io.if_jump_address := io.immediate + Mux(opcode === Instructions.jalr, io.reg1_data, io.instruction_address)
   io.mem_alu_result := alu.io.result
   // lab2(CLINTCSR)
-  /*
-  io.csr_reg_write_data :=
-  */
+
+  io.csr_reg_write_data := MuxLookup(funct3, io.reg1_data)(
+    IndexedSeq(
+      InstructionsTypeCSR.csrrw -> io.reg1_data,
+      InstructionsTypeCSR.csrrs -> (io.reg1_data | io.csr_reg_read_data),  // bitmask set
+      InstructionsTypeCSR.csrrc -> ((~io.reg1_data) & io.csr_reg_read_data),  // bitmask clear
+      InstructionsTypeCSR.csrrwi -> uimm,
+      InstructionsTypeCSR.csrrsi -> (uimm | io.csr_reg_read_data),  // uimm bitmask set 
+      InstructionsTypeCSR.csrrci -> ((~uimm) & io.csr_reg_read_data)  // uimm bitmask clear
+    )
+  )
+
+  // when(opcode === Instructions.csr) {
+  //   printf(cf"CSR funct3=$funct3, giving data 0x${io.reg1_data}%x to write\n")
+  // }
+
 }

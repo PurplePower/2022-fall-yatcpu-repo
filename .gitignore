@@ -357,7 +357,9 @@ vivado/pynq/NA
 .vscode
 .metals
 
+*.code-workspace
 */.bloop/
 *.semanticdb
+*/project/
 !*/project/build.properties
 !*/project/plugins.sbt

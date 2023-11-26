@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../../riscv-arch-test"
+		},
+		{
+			"path": "../../coremark"
 		}
 	],
 	"settings": {

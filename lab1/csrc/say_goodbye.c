@@ -7,7 +7,7 @@ int main() {
     int mem_write_addr = 4;
 
     for (int i = 0; msg[i] != '\0'; i++) {
-        // *UART_SEND_ADDR = msg[i];
+        *UART_SEND_ADDR = msg[i];
         *((int*)(mem_write_addr + i * 4)) = msg[i];
     }
 

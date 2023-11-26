@@ -85,14 +85,16 @@ class FibonacciTest extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "Single Cycle CPU with CSR and CLINT"
   it should "calculate recursively fibonacci(10)" in {
     test(new TestTopModule("fibonacci.asmbin")).withAnnotations(TestAnnotations.annos) { c =>
-      for (i <- 1 to 50) {
-        c.clock.step(1000)
+      for (i <- 1 to 500) {
+        c.clock.step(100)
         c.io.mem_debug_read_address.poke((i * 4).U) // Avoid timeout
       }
 
       c.io.mem_debug_read_address.poke(4.U)
       c.clock.step()
       c.io.mem_debug_read_data.expect(55.U)
+      c.clock.step()
+      
     }
   }
 }
@@ -165,7 +167,7 @@ class SimpleTrapTest extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "Single Cycle CPU with CSR and CLINT"
   it should "jump to trap handler and then return" in {
     test(new TestTopModule("simpletest.asmbin")).withAnnotations(TestAnnotations.annos) { c =>
-      for (i <- 1 to 100) {
+      for (i <- 1 to 1000) {
         c.clock.step()
         c.io.mem_debug_read_address.poke((i * 4).U) // Avoid timeout
       }
@@ -175,7 +177,10 @@ class SimpleTrapTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.interrupt_flag.poke(0x1.U)
       c.clock.step(5)
       c.io.interrupt_flag.poke(0.U)
-      c.clock.step(10000)
+      for (i <- 1 to 1000) {
+        c.clock.step()
+        c.io.mem_debug_read_address.poke((i * 4).U) // Avoid timeout
+      }
       c.io.csr_regs_debug_read_address.poke(CSRRegister.MSTATUS)
       c.io.csr_regs_debug_read_data.expect(0x1888.U)
       c.io.csr_regs_debug_read_address.poke(CSRRegister.MCAUSE)
@@ -183,6 +188,37 @@ class SimpleTrapTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.mem_debug_read_address.poke(0x4.U)
       c.clock.step()
       c.io.mem_debug_read_data.expect(0x2022L.U)
+    }
+  }
+}
+
+
+class JumpTest extends  AnyFlatSpec with ChiselScalatestTester {
+  behavior of "Single Cycle CPU"
+  it should "return good and get correct reg values" in {
+    test(new TestTopModule("jump.asmbin")).withAnnotations(TestAnnotations.annos) { c =>
+      for (i <- 1 to 50) {
+        c.clock.step()
+        c.io.mem_debug_read_address.poke((i * 4).U) // Avoid timeout
+      }
+
+      c.io.regs_debug_read_address.poke(10.U) // a0
+      c.clock.step()
+      c.io.regs_debug_read_data.expect(0x514.U)
+
+      c.io.regs_debug_read_address.poke(11.U) // a1, set in label2 subprocess
+      c.clock.step()
+      c.io.regs_debug_read_data.expect(0x8001.U)
+
+      c.io.regs_debug_read_address.poke(12.U) // a2, right after jal
+      c.clock.step()
+      c.io.regs_debug_read_data.expect(0x222.U)
+
+      c.io.regs_debug_read_address.poke(13.U) // a3
+      c.clock.step()
+      c.io.regs_debug_read_data.expect(0x777.U)
+
+
     }
   }
 }

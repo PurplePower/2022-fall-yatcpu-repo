@@ -48,5 +48,6 @@ object WriteVcdEnabler {
 }
 
 object TestAnnotations {
-  val annos = VerilatorEnabler.annos ++ WriteVcdEnabler.annos
+  // val annos = VerilatorEnabler.annos ++ WriteVcdEnabler.annos
+  val annos = Seq(VerilatorBackendAnnotation, WriteVcdAnnotation) // 启用 verilator 并写出 vcd （无需环境变量设置）
 }
